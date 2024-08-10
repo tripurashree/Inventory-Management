@@ -21,7 +21,10 @@ import {
 import AddIcon from '@mui/icons-material/Add'
 import RemoveIcon from '@mui/icons-material/Remove'
 import DeleteIcon from '@mui/icons-material/Delete'
-import { firestore } from '@/firebase'
+import { firestore, auth } from '@/firebase'
+import { useRouter } from 'next/router'
+import { useAuthState } from 'react-firebase-hooks/auth'
+import { signOut } from 'firebase/auth'
 import {
   collection,
   doc,
@@ -30,6 +33,7 @@ import {
   setDoc,
   deleteDoc,
   getDoc,
+  where,
 } from 'firebase/firestore'
 
 const theme = createTheme({
@@ -67,29 +71,44 @@ export default function Home() {
   const [inventory, setInventory] = useState([])
   const [open, setOpen] = useState(false)
   const [itemName, setItemName] = useState('')
+  const [user, loading] = useAuthState(auth)
+  const router = useRouter()
 
   const updateInventory = async () => {
-    const snapshot = query(collection(firestore, 'inventory'))
-    const docs = await getDocs(snapshot)
-    const inventoryList = []
-    docs.forEach((doc) => {
-      inventoryList.push({ name: doc.id, ...doc.data() })
-    })
-    setInventory(inventoryList)
+    if (user) {
+      const snapshot = query(
+        collection(firestore, 'inventory'),
+        where('userId', '==', user.uid)
+      )
+      const docs = await getDocs(snapshot)
+      const inventoryList = []
+      docs.forEach((doc) => {
+        inventoryList.push({ name: doc.id, ...doc.data() })
+      })
+      setInventory(inventoryList)
+    }
   }
 
   useEffect(() => {
-    updateInventory()
-  }, [])
+    if (!user && !loading) {
+      router.push('/login')
+    } else if (user) {
+      updateInventory()
+    }
+  }, [user, loading, router])
+
+  if (loading) return <div>Loading...</div>
+
+  if (!user) return null
 
   const addItem = async (item) => {
     const docRef = doc(collection(firestore, 'inventory'), item)
     const docSnap = await getDoc(docRef)
     if (docSnap.exists()) {
       const { quantity } = docSnap.data()
-      await setDoc(docRef, { quantity: quantity + 1 })
+      await setDoc(docRef, { quantity: quantity + 1, userId: user.uid })
     } else {
-      await setDoc(docRef, { quantity: 1 })
+      await setDoc(docRef, { quantity: 1, userId: user.uid })
     }
     await updateInventory()
   }
@@ -97,12 +116,12 @@ export default function Home() {
   const removeItem = async (item) => {
     const docRef = doc(collection(firestore, 'inventory'), item)
     const docSnap = await getDoc(docRef)
-    if (docSnap.exists()) {
+    if (docSnap.exists() && docSnap.data().userId === user.uid) {
       const { quantity } = docSnap.data()
       if (quantity === 1) {
         await deleteDoc(docRef)
       } else {
-        await setDoc(docRef, { quantity: quantity - 1 })
+        await setDoc(docRef, { quantity: quantity - 1, userId: user.uid })
       }
     }
     await updateInventory()
@@ -111,15 +130,24 @@ export default function Home() {
   const increaseQuantity = async (item) => {
     const docRef = doc(collection(firestore, 'inventory'), item)
     const docSnap = await getDoc(docRef)
-    if (docSnap.exists()) {
+    if (docSnap.exists() && docSnap.data().userId === user.uid) {
       const { quantity } = docSnap.data()
-      await setDoc(docRef, { quantity: quantity + 1 })
+      await setDoc(docRef, { quantity: quantity + 1, userId: user.uid })
     }
     await updateInventory()
   }
 
   const handleOpen = () => setOpen(true)
   const handleClose = () => setOpen(false)
+
+  const handleSignOut = async () => {
+    try {
+      await signOut(auth)
+      router.push('/login')
+    } catch (error) {
+      console.error('Error signing out:', error)
+    }
+  }
 
   return (
     <ThemeProvider theme={theme}>
@@ -144,6 +172,15 @@ export default function Home() {
             sx={buttonStyle}
           >
             Add New Item
+          </Button>
+
+          <Button
+            variant="contained"
+            color="secondary"
+            onClick={handleSignOut}
+            sx={buttonStyle}
+          >
+            Sign Out
           </Button>
 
           <Grid container spacing={3}>
