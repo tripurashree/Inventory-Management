@@ -17,11 +17,15 @@ import {
   Tooltip,
   ThemeProvider,
   createTheme,
+  MenuItem,
+  Select,
+  InputLabel,
+  FormControl,
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import RemoveIcon from '@mui/icons-material/Remove'
 import DeleteIcon from '@mui/icons-material/Delete'
-import { firestore, auth } from '@/firebase'
+import { firestore, auth } from '../firebase'
 import { useRouter } from 'next/router'
 import { useAuthState } from 'react-firebase-hooks/auth'
 import { signOut } from 'firebase/auth'
@@ -71,8 +75,11 @@ export default function Home() {
   const [inventory, setInventory] = useState([])
   const [open, setOpen] = useState(false)
   const [itemName, setItemName] = useState('')
+  const [category, setCategory] = useState('')
   const [user, loading] = useAuthState(auth)
   const router = useRouter()
+
+  const categories = ['Electronics', 'Furniture', 'Clothing', 'Miscellaneous']
 
   const updateInventory = async () => {
     if (user) {
@@ -101,14 +108,14 @@ export default function Home() {
 
   if (!user) return null
 
-  const addItem = async (item) => {
-    const docRef = doc(collection(firestore, 'inventory'), item)
+  const addItem = async () => {
+    const docRef = doc(collection(firestore, 'inventory'), itemName)
     const docSnap = await getDoc(docRef)
     if (docSnap.exists()) {
       const { quantity } = docSnap.data()
-      await setDoc(docRef, { quantity: quantity + 1, userId: user.uid })
+      await setDoc(docRef, { quantity: quantity + 1, userId: user.uid, category })
     } else {
-      await setDoc(docRef, { quantity: 1, userId: user.uid })
+      await setDoc(docRef, { quantity: 1, userId: user.uid, category })
     }
     await updateInventory()
   }
@@ -138,7 +145,11 @@ export default function Home() {
   }
 
   const handleOpen = () => setOpen(true)
-  const handleClose = () => setOpen(false)
+  const handleClose = () => {
+    setItemName('')
+    setCategory('')
+    setOpen(false)
+  }
 
   const handleSignOut = async () => {
     try {
@@ -184,7 +195,7 @@ export default function Home() {
           </Button>
 
           <Grid container spacing={3}>
-            {inventory.map(({ name, quantity }) => (
+            {inventory.map(({ name, quantity, category }) => (
               <Grid item xs={12} sm={6} md={4} key={name}>
                 <Card 
                   elevation={3} 
@@ -199,6 +210,9 @@ export default function Home() {
                     </Typography>
                     <Typography variant="body1">
                       Quantity: {quantity}
+                    </Typography>
+                    <Typography variant="body2" color="textSecondary">
+                      Category: {category}
                     </Typography>
                   </CardContent>
                   <CardActions>
@@ -235,7 +249,7 @@ export default function Home() {
           <Typography id="modal-modal-title" variant="h6" component="h2" gutterBottom>
             Add Item
           </Typography>
-          <Stack width="100%" direction={'row'} spacing={2}>
+          <Stack width="100%" direction={'column'} spacing={2}>
             <TextField
               id="outlined-basic"
               label="Item"
@@ -244,11 +258,24 @@ export default function Home() {
               value={itemName}
               onChange={(e) => setItemName(e.target.value)}
             />
+            <FormControl fullWidth>
+              <InputLabel>Category</InputLabel>
+              <Select
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                label="Category"
+              >
+                {categories.map((cat) => (
+                  <MenuItem key={cat} value={cat}>
+                    {cat}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
             <Button
               variant="contained"
               onClick={() => {
-                addItem(itemName)
-                setItemName('')
+                addItem()
                 handleClose()
               }}
               color="primary"
