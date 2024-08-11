@@ -1,5 +1,3 @@
-'use client'
-
 import { useState, useEffect } from 'react'
 import { 
   Box, 
@@ -17,15 +15,15 @@ import {
   Tooltip,
   ThemeProvider,
   createTheme,
-  MenuItem,
-  Select,
-  InputLabel,
   FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import RemoveIcon from '@mui/icons-material/Remove'
 import DeleteIcon from '@mui/icons-material/Delete'
-import { firestore, auth } from '../firebase'
+import { firestore, auth } from '@/firebase'
 import { useRouter } from 'next/router'
 import { useAuthState } from 'react-firebase-hooks/auth'
 import { signOut } from 'firebase/auth'
@@ -76,10 +74,9 @@ export default function Home() {
   const [open, setOpen] = useState(false)
   const [itemName, setItemName] = useState('')
   const [category, setCategory] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
   const [user, loading] = useAuthState(auth)
   const router = useRouter()
-
-  const categories = ['Electronics', 'Furniture', 'Clothing', 'Miscellaneous']
 
   const updateInventory = async () => {
     if (user) {
@@ -108,8 +105,8 @@ export default function Home() {
 
   if (!user) return null
 
-  const addItem = async () => {
-    const docRef = doc(collection(firestore, 'inventory'), itemName)
+  const addItem = async (item, category) => {
+    const docRef = doc(collection(firestore, 'inventory'), item)
     const docSnap = await getDoc(docRef)
     if (docSnap.exists()) {
       const { quantity } = docSnap.data()
@@ -145,11 +142,7 @@ export default function Home() {
   }
 
   const handleOpen = () => setOpen(true)
-  const handleClose = () => {
-    setItemName('')
-    setCategory('')
-    setOpen(false)
-  }
+  const handleClose = () => setOpen(false)
 
   const handleSignOut = async () => {
     try {
@@ -159,6 +152,17 @@ export default function Home() {
       console.error('Error signing out:', error)
     }
   }
+
+  // const filteredInventory = inventory.filter(
+  //   item => 
+  //     item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+  //     item.category.toLowerCase().includes(searchQuery.toLowerCase())
+  // )
+  const filteredInventory = inventory.filter(
+    (item) => 
+      (item.name && item.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (item.category && item.category.toLowerCase().includes(searchQuery.toLowerCase()))
+  )
 
   return (
     <ThemeProvider theme={theme}>
@@ -194,8 +198,17 @@ export default function Home() {
             Sign Out
           </Button>
 
+          <TextField
+            variant="outlined"
+            placeholder="Search by item name or category"
+            fullWidth
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            sx={{ mt: 2 }}
+          />
+
           <Grid container spacing={3}>
-            {inventory.map(({ name, quantity, category }) => (
+            {filteredInventory.map(({ name, quantity }) => (
               <Grid item xs={12} sm={6} md={4} key={name}>
                 <Card 
                   elevation={3} 
@@ -211,7 +224,7 @@ export default function Home() {
                     <Typography variant="body1">
                       Quantity: {quantity}
                     </Typography>
-                    <Typography variant="body2" color="textSecondary">
+                    <Typography variant="body2" color="text.secondary">
                       Category: {category}
                     </Typography>
                   </CardContent>
@@ -249,7 +262,7 @@ export default function Home() {
           <Typography id="modal-modal-title" variant="h6" component="h2" gutterBottom>
             Add Item
           </Typography>
-          <Stack width="100%" direction={'column'} spacing={2}>
+          <Stack width="100%" direction={'row'} spacing={2}>
             <TextField
               id="outlined-basic"
               label="Item"
@@ -259,23 +272,26 @@ export default function Home() {
               onChange={(e) => setItemName(e.target.value)}
             />
             <FormControl fullWidth>
-              <InputLabel>Category</InputLabel>
+              <InputLabel id="category-label">Category</InputLabel>
               <Select
+                labelId="category-label"
+                id="category-select"
                 value={category}
-                onChange={(e) => setCategory(e.target.value)}
                 label="Category"
+                onChange={(e) => setCategory(e.target.value)}
               >
-                {categories.map((cat) => (
-                  <MenuItem key={cat} value={cat}>
-                    {cat}
-                  </MenuItem>
-                ))}
+                <MenuItem value="Electronics">Electronics</MenuItem>
+                <MenuItem value="Clothing">Clothing</MenuItem>
+                <MenuItem value="Home Goods">Home Goods/Food</MenuItem>
+                <MenuItem value="Sports">Sports</MenuItem>
               </Select>
             </FormControl>
             <Button
               variant="contained"
               onClick={() => {
-                addItem()
+                addItem(itemName, category)
+                setItemName('')
+                setCategory('')
                 handleClose()
               }}
               color="primary"
