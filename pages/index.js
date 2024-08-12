@@ -23,6 +23,7 @@ import {
 import AddIcon from '@mui/icons-material/Add'
 import RemoveIcon from '@mui/icons-material/Remove'
 import DeleteIcon from '@mui/icons-material/Delete'
+import EditIcon from '@mui/icons-material/Edit'
 import { firestore, auth } from '@/firebase'
 import { useRouter } from 'next/router'
 import { useAuthState } from 'react-firebase-hooks/auth'
@@ -72,10 +73,17 @@ const buttonStyle = {
 export default function Home() {
   const [inventory, setInventory] = useState([])
   const [open, setOpen] = useState(false)
+  const [editMode, setEditMode] = useState(false)
+  const [viewMode, setViewMode] = useState(false)
   const [itemName, setItemName] = useState('')
   const [category, setCategory] = useState('')
+  const [quantity, setQuantity] = useState(1)
+  const [supplier, setSupplier] = useState('')
+  const [price, setPrice] = useState('')
+  const [description, setDescription] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [user, loading] = useAuthState(auth)
+  const [currentItem, setCurrentItem] = useState(null)
   const router = useRouter()
 
   const updateInventory = async () => {
@@ -105,44 +113,22 @@ export default function Home() {
 
   if (!user) return null
 
-  const addItem = async (item, category) => {
-    const docRef = doc(collection(firestore, 'inventory'), item)
-    const docSnap = await getDoc(docRef)
-    if (docSnap.exists()) {
-      const { quantity } = docSnap.data()
-      await setDoc(docRef, { quantity: quantity + 1, userId: user.uid, category })
-    } else {
-      await setDoc(docRef, { quantity: 1, userId: user.uid, category })
-    }
-    await updateInventory()
+  const handleOpen = () => {
+    setItemName('')
+    setCategory('')
+    setQuantity(1)
+    setSupplier('')
+    setPrice('')
+    setDescription('')
+    setEditMode(false)
+    setOpen(true)
   }
 
-  const removeItem = async (item) => {
-    const docRef = doc(collection(firestore, 'inventory'), item)
-    const docSnap = await getDoc(docRef)
-    if (docSnap.exists() && docSnap.data().userId === user.uid) {
-      const { quantity } = docSnap.data()
-      if (quantity === 1) {
-        await deleteDoc(docRef)
-      } else {
-        await setDoc(docRef, { quantity: quantity - 1, userId: user.uid })
-      }
-    }
-    await updateInventory()
+  const handleClose = () => {
+    setOpen(false)
+    setViewMode(false)
+    setCurrentItem(null)
   }
-
-  const increaseQuantity = async (item) => {
-    const docRef = doc(collection(firestore, 'inventory'), item)
-    const docSnap = await getDoc(docRef)
-    if (docSnap.exists() && docSnap.data().userId === user.uid) {
-      const { quantity } = docSnap.data()
-      await setDoc(docRef, { quantity: quantity + 1, userId: user.uid })
-    }
-    await updateInventory()
-  }
-
-  const handleOpen = () => setOpen(true)
-  const handleClose = () => setOpen(false)
 
   const handleSignOut = async () => {
     try {
@@ -153,11 +139,73 @@ export default function Home() {
     }
   }
 
-  // const filteredInventory = inventory.filter(
-  //   item => 
-  //     item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-  //     item.category.toLowerCase().includes(searchQuery.toLowerCase())
-  // )
+  const handleSave = async () => {
+    const docRef = doc(collection(firestore, 'inventory'), itemName)
+    const itemData = {
+      category,
+      quantity,
+      supplier,
+      price,
+      description,
+      userId: user.uid,
+    }
+
+    await setDoc(docRef, itemData)
+    await updateInventory()
+    handleClose()
+  }
+
+  const handleEdit = (item) => {
+    setItemName(item.name)
+    setCategory(item.category)
+    setQuantity(item.quantity)
+    setSupplier(item.supplier)
+    setPrice(item.price)
+    setDescription(item.description)
+    setEditMode(true)
+    setOpen(true)
+  }
+
+  const handleCardClick = (item) => {
+    setCurrentItem(item)
+    setViewMode(true)
+    setOpen(true)
+  }
+
+  // Function to remove an item from the inventory
+  const removeItem = async (itemName) => {
+    const docRef = doc(firestore, 'inventory', itemName)
+    await deleteDoc(docRef)
+    await updateInventory()
+  }
+
+  const increaseQuantity = async (itemName) => {
+    const docRef = doc(firestore, 'inventory', itemName)
+    const docSnap = await getDoc(docRef)
+
+    if (docSnap.exists()) {
+      const newQuantity = docSnap.data().quantity + 1
+      await setDoc(docRef, { ...docSnap.data(), quantity: newQuantity })
+      await updateInventory()
+    }
+  }
+  const decreaseQuantity = async (itemName) => {
+    const docRef = doc(firestore, 'inventory', itemName)
+    const docSnap = await getDoc(docRef)
+  
+    if (docSnap.exists()) {
+      const currentQuantity = docSnap.data().quantity
+      if (currentQuantity > 1) {
+        const newQuantity = currentQuantity - 1
+        await setDoc(docRef, { ...docSnap.data(), quantity: newQuantity })
+        await updateInventory()
+      } else {
+        console.log('Quantity cannot be less than 1')
+      }
+    }
+  }
+  
+
   const filteredInventory = inventory.filter(
     (item) => 
       (item.name && item.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
@@ -208,40 +256,55 @@ export default function Home() {
           />
 
           <Grid container spacing={3}>
-            {filteredInventory.map(({ name, quantity }) => (
-              <Grid item xs={12} sm={6} md={4} key={name}>
+            {filteredInventory.map((item) => (
+              <Grid item xs={12} sm={6} md={4} key={item.name}>
                 <Card 
                   elevation={3} 
                   sx={{ 
                     transition: '0.3s', 
                     '&:hover': { transform: 'translateY(-5px)' } 
                   }}
+                  onClick={() => handleCardClick(item)}
                 >
                   <CardContent>
                     <Typography variant="h6" gutterBottom>
-                      {name.charAt(0).toUpperCase() + name.slice(1)}
+                      {item.name.charAt(0).toUpperCase() + item.name.slice(1)}
                     </Typography>
                     <Typography variant="body1">
-                      Quantity: {quantity}
+                      Quantity: {item.quantity}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      Category: {category}
+                      Category: {item.category}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Supplier: {item.supplier}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Price: ${item.price}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Description: {item.description}
                     </Typography>
                   </CardContent>
                   <CardActions>
                     <Tooltip title="Decrease Quantity">
-                      <IconButton onClick={() => removeItem(name)} color="error">
+                      <IconButton onClick={(e) => { e.stopPropagation(); decreaseQuantity(item.name) }} color="error">
                         <RemoveIcon />
                       </IconButton>
                     </Tooltip>
                     <Tooltip title="Increase Quantity">
-                      <IconButton onClick={() => increaseQuantity(name)} color="secondary">
+                      <IconButton onClick={(e) => { e.stopPropagation(); increaseQuantity(item.name) }} color="secondary">
                         <AddIcon />
                       </IconButton>
                     </Tooltip>
                     <Tooltip title="Delete Item">
-                      <IconButton onClick={() => removeItem(name)} color="error">
+                      <IconButton onClick={(e) => { e.stopPropagation(); removeItem(item.name) }} color="error">
                         <DeleteIcon />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Edit Item">
+                      <IconButton onClick={(e) => { e.stopPropagation(); handleEdit(item) }} color="primary">
+                        <EditIcon />
                       </IconButton>
                     </Tooltip>
                   </CardActions>
@@ -259,46 +322,96 @@ export default function Home() {
         aria-describedby="modal-modal-description"
       >
         <Box sx={modalStyle}>
-          <Typography id="modal-modal-title" variant="h6" component="h2" gutterBottom>
-            Add Item
-          </Typography>
-          <Stack width="100%" direction={'row'} spacing={2}>
-            <TextField
-              id="outlined-basic"
-              label="Item"
-              variant="outlined"
-              fullWidth
-              value={itemName}
-              onChange={(e) => setItemName(e.target.value)}
-            />
-            <FormControl fullWidth>
-              <InputLabel id="category-label">Category</InputLabel>
-              <Select
-                labelId="category-label"
-                id="category-select"
-                value={category}
-                label="Category"
-                onChange={(e) => setCategory(e.target.value)}
+          {viewMode && currentItem ? (
+            <>
+              <Typography id="modal-modal-title" variant="h6" component="h2">
+                {currentItem.name}
+              </Typography>
+              <Typography id="modal-modal-description" sx={{ mt: 2 }}>
+                Category: {currentItem.category}
+              </Typography>
+              <Typography id="modal-modal-description" sx={{ mt: 2 }}>
+                Quantity: {currentItem.quantity}
+              </Typography>
+              <Typography id="modal-modal-description" sx={{ mt: 2 }}>
+                Supplier: {currentItem.supplier}
+              </Typography>
+              <Typography id="modal-modal-description" sx={{ mt: 2 }}>
+                Price: ${currentItem.price}
+              </Typography>
+              <Typography id="modal-modal-description" sx={{ mt: 2 }}>
+                Description: {currentItem.description}
+              </Typography>
+            </>
+          ) : (
+            <>
+              <Typography id="modal-modal-title" variant="h6" component="h2">
+                {editMode ? 'Edit Item' : 'Add New Item'}
+              </Typography>
+              <TextField
+                label="Item Name"
+                value={itemName}
+                onChange={(e) => setItemName(e.target.value)}
+                fullWidth
+                sx={{ mt: 2 }}
+                disabled={editMode}
+              />
+              <FormControl fullWidth sx={{ mt: 2 }}>
+                <InputLabel>Category</InputLabel>
+                <Select
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                >
+                  <MenuItem value="electronics">Electronics</MenuItem>
+                  <MenuItem value="furniture">Furniture</MenuItem>
+                  <MenuItem value="clothing">Clothing</MenuItem>
+                  <MenuItem value="accessories">Accessories</MenuItem>
+                  <MenuItem value="food">Food</MenuItem>
+                  <MenuItem value="books">Books</MenuItem>
+                </Select>
+              </FormControl>
+              <TextField
+                label="Quantity"
+                value={quantity}
+                onChange={(e) => setQuantity(e.target.value)}
+                fullWidth
+                type="number"
+                sx={{ mt: 2 }}
+              />
+              <TextField
+                label="Supplier"
+                value={supplier}
+                onChange={(e) => setSupplier(e.target.value)}
+                fullWidth
+                sx={{ mt: 2 }}
+              />
+              <TextField
+                label="Price"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                fullWidth
+                type="number"
+                sx={{ mt: 2 }}
+              />
+              <TextField
+                label="Description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                fullWidth
+                multiline
+                rows={4}
+                sx={{ mt: 2 }}
+              />
+              <Button
+                variant="contained"
+                onClick={handleSave}
+                fullWidth
+                sx={{ mt: 2 }}
               >
-                <MenuItem value="Electronics">Electronics</MenuItem>
-                <MenuItem value="Clothing">Clothing</MenuItem>
-                <MenuItem value="Home Goods">Home Goods/Food</MenuItem>
-                <MenuItem value="Sports">Sports</MenuItem>
-              </Select>
-            </FormControl>
-            <Button
-              variant="contained"
-              onClick={() => {
-                addItem(itemName, category)
-                setItemName('')
-                setCategory('')
-                handleClose()
-              }}
-              color="primary"
-            >
-              Add
-            </Button>
-          </Stack>
+                {editMode ? 'Update Item' : 'Add Item'}
+              </Button>
+            </>
+          )}
         </Box>
       </Modal>
     </ThemeProvider>
