@@ -39,19 +39,36 @@ import {
   where,
 } from 'firebase/firestore'
 
-const theme = createTheme({
-  palette: {
-    primary: {
-      main: '#007bff',
-    },
-    secondary: {
-      main: '#28a745',
-    },
-    error: {
-      main: '#dc3545',
-    },
-  },
-})
+// const theme = createTheme({
+//   palette: {
+//     primary: {
+//       main: '#3f51b5', // Indigo
+//     },
+//     secondary: {
+//       main: '#f50057', // Pink
+//     },
+//     background: {
+//       default: '#f5f5f5', // Light grey background
+//     },
+//   },
+//   typography: {
+//     fontFamily: 'Roboto, Arial, sans-serif',
+//   },
+//   components: {
+//     MuiCard: {
+//       styleOverrides: {
+//         root: {
+//           boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+//           transition: 'all 0.3s ease-in-out',
+//           '&:hover': {
+//             transform: 'translateY(-5px)',
+//             boxShadow: '0 6px 12px rgba(0,0,0,0.15)',
+//           },
+//         },
+//       },
+//     },
+//   },
+// });
 
 const modalStyle = {
   position: 'absolute',
@@ -60,15 +77,53 @@ const modalStyle = {
   transform: 'translate(-50%, -50%)',
   width: 400,
   bgcolor: 'background.paper',
-  borderRadius: 2,
+  borderRadius: 4,
   boxShadow: 24,
   p: 4,
-}
+};
+
+const theme = createTheme({
+  palette: {
+    primary: {
+      main: '#3f51b5', // Indigo
+    },
+    secondary: {
+      main: '#f50057', // Pink
+    },
+    background: {
+      default: '#f5f5f5', // Light grey background
+    },
+  },
+  typography: {
+    fontFamily: 'Roboto, Arial, sans-serif',
+  },
+  components: {
+    MuiCard: {
+      styleOverrides: {
+        root: {
+          boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+          transition: 'all 0.3s ease-in-out',
+          '&:hover': {
+            transform: 'translateY(-5px)',
+            boxShadow: '0 6px 12px rgba(0,0,0,0.15)',
+          },
+        },
+      },
+    },
+  },
+});
 
 const buttonStyle = {
-  borderRadius: 2,
+  // borderRadius: 80,
   padding: '12px 24px',
-}
+  textTransform: 'none',
+  fontWeight: 'bold',
+  backgroundColor: '#f50057',
+  color: '#fff',
+  '&:hover': {
+    backgroundColor: '#c51162',
+  },
+};
 
 export default function Home() {
   const [inventory, setInventory] = useState([])
@@ -84,6 +139,7 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState('')
   const [user, loading] = useAuthState(auth)
   const [currentItem, setCurrentItem] = useState(null)
+  const [sortOption, setSortOption] = useState('priceAsc')
   const router = useRouter()
 
   const updateInventory = async () => {
@@ -204,13 +260,27 @@ export default function Home() {
       }
     }
   }
-  
+  const sortedInventory = [...inventory].sort((a, b) => {
+    if (sortOption === 'priceAsc') {
+      return a.price - b.price
+    } else if (sortOption === 'priceDesc') {
+      return b.price - a.price
+    }
+    return 0
+  })
 
-  const filteredInventory = inventory.filter(
+  const filteredInventory = sortedInventory.filter(
     (item) => 
       (item.name && item.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
       (item.category && item.category.toLowerCase().includes(searchQuery.toLowerCase()))
   )
+  
+
+  // const filteredInventory = inventory.filter(
+  //   (item) => 
+  //     (item.name && item.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+  //     (item.category && item.category.toLowerCase().includes(searchQuery.toLowerCase()))
+  // )
 
   return (
     <ThemeProvider theme={theme}>
@@ -224,6 +294,15 @@ export default function Home() {
           gap={4}
           py={4}
         >
+          <Box width="100%" display="flex" justifyContent="flex-end">
+            <Button
+              variant="contained"
+              onClick={handleSignOut}
+              sx={{ ...buttonStyle, backgroundColor: '#3f51b5' }}
+            >
+              Sign Out
+            </Button>
+          </Box>
           <Typography variant="h3" component="h1" gutterBottom>
             Inventory Management
           </Typography>
@@ -236,16 +315,6 @@ export default function Home() {
           >
             Add New Item
           </Button>
-
-          <Button
-            variant="contained"
-            color="secondary"
-            onClick={handleSignOut}
-            sx={buttonStyle}
-          >
-            Sign Out
-          </Button>
-
           <TextField
             variant="outlined"
             placeholder="Search by item name or category"
@@ -254,6 +323,18 @@ export default function Home() {
             onChange={(e) => setSearchQuery(e.target.value)}
             sx={{ mt: 2 }}
           />
+
+          <FormControl sx={{ mt: 2, minWidth: 120 }}>
+            <InputLabel>Sort By</InputLabel>
+            <Select
+              value={sortOption}
+              onChange={(e) => setSortOption(e.target.value)}
+              label="Sort By"
+            >
+              <MenuItem value="priceAsc">Price: Low to High</MenuItem>
+              <MenuItem value="priceDesc">Price: High to Low</MenuItem>
+            </Select>
+          </FormControl>
 
           <Grid container spacing={3}>
             {filteredInventory.map((item) => (
