@@ -11,9 +11,9 @@ Welcome to our cutting-edge Inventory Management System! This project leverages 
 
 ## 🔗 Live Demo
 Check out the live demo of our Inventory Management System:
-<!-- [TVT's Inventory Manager](https://tvt-s-inventory-manager-72p28hkqz-tvt15s-projects.vercel.app) -->
+<!-- [Ezzy-inventory-tracking](https://ezzy-inventory-tracking-git-master-tripurashrees-projects.vercel.app/login) -->
 
-## 📸 Screenshots
+<!-- ## 📸 Screenshots -->
 
 <!-- <table>
   <tr>
