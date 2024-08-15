@@ -11,7 +11,7 @@ Welcome to our cutting-edge Inventory Management System! This project leverages 
 
 ## 🔗 Live Demo
 Check out the live demo of our Inventory Management System:
-<!-- [Ezzy-inventory-tracking](https://ezzy-inventory-tracking-git-master-tripurashrees-projects.vercel.app/login) -->
+[Ezzy-inventory-tracking](https://ezzy-inventory-tracking-git-master-tripurashrees-projects.vercel.app/login)
 
 <!-- ## 📸 Screenshots -->
 
